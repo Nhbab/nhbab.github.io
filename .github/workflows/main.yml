@@ -49,5 +49,10 @@ jobs:
           # Launch hardware-accelerated Android emulator
           DISPLAY=:1 $ANDROID_HOME/emulator/emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect &
           
-          # Securely assign your custom domain and keep the cloud runner alive
-          ssh -R ${SUB_NAME}:80:localhost:6080 nokey@localhost.run
+          # Wait a few seconds for all internal services to fully initialize
+          sleep 10
+
+          echo "=== STARTING STABLE WEB TUNNEL ==="
+          # Run SSH connection with strict flags to prevent 'exit 1' disconnects
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R ${SUB_NAME}:80:localhost:6080 nokey@localhost.run
+
