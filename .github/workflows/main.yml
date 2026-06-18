@@ -10,7 +10,6 @@ jobs:
 
       - name: Maximize CPU Hardware Acceleration (KVM)
         run: |
-          # Set explicit read/write access to KVM virtualization hardware
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
@@ -22,16 +21,18 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      # FIXES ERROR 127: Automatically maps paths and activates sdkmanager
+      - name: Setup Android SDK Path
+        uses: android-actions/setup-android@v3
+
       - name: Download High-Performance Android System
         run: |
-          yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses
-          # Using Android 29 (10.0) because it performs 3x faster on cloud runners than newer versions
-          sdkmanager --sdk_root=$ANDROID_HOME "emulator" "system-images;android-29;google_apis;x86_64"
+          # The setup-android step already handles licenses, so we directly install packages
+          sdkmanager "emulator" "system-images;android-29;google_apis;x86_64"
 
       - name: Build Virtual Device with Max RAM Allocation
         run: |
           echo "no" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --force
-          # Modifying the hardware profile to unlock performance limits
           echo "hw.ramSize=4096" >> ~/.android/avd/CloudAVD.avd/config.ini
           echo "hw.gpu.mode=host" >> ~/.android/avd/CloudAVD.avd/config.ini
 
@@ -53,13 +54,13 @@ jobs:
           # 2. Start HTML5 WebSocket transcoder
           /usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen 6080 &
           
-          # 3. Boot Android emulator using SwiftShader multi-threaded background loops
-          DISPLAY=:1 $ANDROID_HOME/emulator/emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect -cores 4 -memory 4096 &
+          # 3. Boot flagship-tweaked Android emulator using all 4 multi-threaded cores
+          DISPLAY=:1 emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect -cores 4 -memory 4096 &
           
-          # 4. Give components time to bind to open network sockets
+          # 4. Give components time to fully bind to internal ports
           sleep 15
           
-          # 5. FIXED: Loop prevents immediate 'exit 1' tunnel termination
+          # 5. Continuous execution loop ensures the web tunnel stays online without crashing
           echo "=== CONNECTING SECURE TUNNEL ==="
           while true; do
             ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -y -R ${SUB_NAME}:80:localhost:6080 nokey@localhost.run || true
