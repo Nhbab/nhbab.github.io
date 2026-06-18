@@ -2,7 +2,6 @@ name: Run Flagship Cloud Android Emulator
 on: 
   workflow_dispatch:
 
-# Grants the runner secure system access to loop back-to-back for free
 permissions:
   actions: write
   contents: read
@@ -34,20 +33,18 @@ jobs:
         run: |
           sdkmanager "emulator" "system-images;android-29;google_apis;x86_64"
 
+      # FIXED: Force pipes 'no' to the hardware profile prompt and uses a safety wildcard path search
       - name: Build Virtual Device with Max RAM Allocation
         run: |
-          # 1. Force create the primary configuration directories ahead of time
-          mkdir -p ~/.android/avd/CloudAVD.avd
+          echo "no" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --force
           
-          # 2. Pipe standard default answers directly to bypass the interactive hardware prompt
-          printf "no\n" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --force
+          # Dynamic fallback finding: injects hardware tweaks into the actual created path
+          CONF_PATH=$(find ~/.android/avd/ -name "config.ini")
+          echo "Found configuration file at: $CONF_PATH"
           
-          # 3. Securely create and append high-performance specifications
-          touch ~/.android/avd/CloudAVD.avd/config.ini
-          echo "hw.ramSize=4096" >> ~/.android/avd/CloudAVD.avd/config.ini
-          echo "hw.gpu.mode=host" >> ~/.android/avd/CloudAVD.avd/config.ini
-          echo "vm.heapSize=512" >> ~/.android/avd/CloudAVD.avd/config.ini
-
+          echo "hw.ramSize=4096" >> "$CONF_PATH"
+          echo "hw.gpu.mode=host" >> "$CONF_PATH"
+          echo "vm.heapSize=512" >> "$CONF_PATH"
 
       - name: Install VNC Desktop & Web Streamer
         run: |
@@ -68,7 +65,7 @@ jobs:
           # 2. Convert raw server display data into interactive web canvas streams
           /usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen 6080 &
           
-          # 3. Boot high-performance Android image bound to multi-threaded hardware cores
+          # 3. Boot flagship-tweaked Android emulator using all 4 multi-threaded cores
           DISPLAY=:1 emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect -cores 4 -memory 4096 &
           
           # 4. Wait for system initialization
