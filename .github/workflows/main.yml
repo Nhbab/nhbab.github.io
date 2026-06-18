@@ -20,43 +20,52 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo chmod 666 /dev/kvm
 
-      # SỬA TẬN GỐC LỖI CURL 23: Tải vào thư mục tạm /tmp để không bị lỗi đĩa cứng hoặc quyền ghi file
-      - name: Setup and Authenticate Ngrok Agent
+      # TRIỂN KHAI TOÀN BỘ BẰNG DOCKER: Đồng bộ mạng và khởi chạy 3 container biệt lập
+      - name: Deploy Pure Docker Architecture
         run: |
-          curl -sSOL --output-dir /tmp https://equinox.io
-          sudo tar -xzf /tmp/ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
-          rm -f /tmp/ngrok-v3-stable-linux-amd64.tgz
-          ngrok config add-authtoken rd_3FJNUZLuxuKSUetomzVf2PqUeHX
-
-      - name: Deploy Redroid Engine & Web VNC Dashboard
-        run: |
+          # 1. Khởi tạo một mạng nội bộ chung để các container Docker nói chuyện được với nhau
+          docker network create cloud_phone_net
+          
+          # 2. Kích hoạt module hạt nhân cho bộ khung nền Redroid Android TV
           sudo modprobe ashmem_linux || true
           sudo modprobe binder_linux || true
           
-          # Khởi chạy lõi Android TV 11 ARM-Translated siêu nhẹ
-          docker run -d --privileged --name redroid_core \
+          # 3. CONTAINER LÕI: Chạy hệ điều hành Android TV 11 siêu nhẹ
+          docker run -d --privileged --name android_core \
+            --network cloud_phone_net \
             --device /dev/kvm \
-            -p 5555:5555 \
             redroid/redroid:11.0.0-latest \
-            androidboot.hardware=redroid redroid.width=960 redroid.height=540 redroid.fps=30
+            androidboot.hardware=redroid redroid.width=854 redroid.height=480 redroid.fps=30
             
-          # Khởi chạy giao diện stream màn hình Web VNC tự động kết nối vào lõi Android
+          sleep 10
+            
+          # 4. CONTAINER ĐỒ HỌA: Chuyển dữ liệu màn hình Android thành giao diện điều khiển Web VNC 
           docker run -d --name web_canvas \
+            --network cloud_phone_net \
             -p 6080:80 \
-            -e ADB_HOST=localhost \
+            -e ADB_HOST=android_core \
             -e VNC_PASSWORD=password123 \
             sorccu/adb-vnc-server
           
-          sleep 15
+          sleep 10
 
-      - name: Start TV Engine & Permanent Ngrok Tunnel
+          # 5. CONTAINER ĐƯỜNG TRUYỀN: Kéo image chính thức ngrok/ngrok và tạo đường hầm HTTPS bảo mật
+          docker run -d --name ngrok_agent \
+            --network cloud_phone_net \
+            -e NGROK_AUTHTOKEN=rd_3FJNUZLuxuKSUetomzVf2PqUeHX \
+            ngrok/ngrok:latest \
+            http web_canvas:80 --domain=banister-reopen-savings.ngrok-free.dev
+
+      - name: Maintain Server Runtime Loop
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Chu kỳ 5 tiếng 50 phút tự động kích hoạt máy chủ mới, đảm bảo hệ thống không bị ngắt quãng
           (sleep 21000 && gh workflow run "Ultimate Android TV ARM Emulator" || true) & 
-
-          echo "=== CONNECTING TO FIXED NGROK DOMAIN ENGINE ==="
+          
+          echo "=== PURE DOCKER EMULATOR IS ONLINE AND STREAMING ==="
+          # Vòng lặp giữ máy chủ GitHub Actions luôn mở để phục vụ truyền dữ liệu
           while true; do
-            ngrok http 6080 --domain=banister-reopen-savings.ngrok-free.dev --log=stdout || true
-            sleep 5
+            docker ps
+            sleep 60
           done
