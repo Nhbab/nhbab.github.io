@@ -3,25 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Android 16 Linux Environment</title>
+    <title>Cloud Android Emulator</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #0b0e14; color: #f0f6fc; text-align: center; padding: 50px 20px; }
-        .container { max-width: 550px; background: #161b22; border: 1px solid #30363d; border-radius: 16px; margin: 0 auto; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .status-dot { width: 12px; height: 12px; background: #238636; border-radius: 50%; display: inline-block; margin-right: 8px; }
-        .header-wrapper { display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
-        h2 { margin: 0; font-size: 1.4rem; color: #c9d1d9; }
-        p { color: #8b949e; line-height: 1.6; font-size: 0.95rem; text-align: left; }
+        body { margin: 0; padding: 0; background: #222; color: #fff; font-family: sans-serif; text-align: center; }
+        iframe { width: 100vw; height: 85vh; border: none; background: #000; }
+        .controls { padding: 10px; }
+        input { padding: 8px; width: 60%; max-width: 300px; border-radius: 4px; border: none; }
+        button { padding: 8px 15px; background: #24292e; color: white; border: 1px solid #fff; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <div class="header-wrapper">
-            <div class="status-dot"></div>
-            <h2>Linux VM Pipeline Active</h2>
-        </div>
-        <p>Your Android 16 system infrastructure is configured to run headless tasks on a Linux host engine. This setup processes commands via background script runners, ensuring optimal performance and complete compliance with GitHub usage policies.</p>
+    <div class="controls">
+        <h3>Connect to your GitHub Actions Cloud Emulator</h3>
+        <input type="text" id="tunnelUrl" placeholder="Paste the Web URL from your Action log here...">
+        <button onclick="connectEmulator()">Connect</button>
     </div>
+    <iframe id="emulatorScreen" src=""></iframe>
 
+    <script>
+        function connectEmulator() {
+            let url = document.getElementById('tunnelUrl').value.trim();
+            if (url) {
+                // Attach the vnc password to bypass login prompts on your phone
+                if (!url.includes('?')) {
+                    url += '?password=password123';
+                }
+                document.getElementById('emulatorScreen').src = url;
+            }
+        }
+    </script>
 </body>
 </html>
