@@ -1,7 +1,7 @@
 name: 📱 Run Compose Phone on GitHub
 
 on:
-  workflow_dispatch: # 👈 Lets you tap the run button from your phone screen
+  workflow_dispatch: # 👈 Tap the run button from your phone screen
 
 jobs:
   launch-compose:
@@ -11,7 +11,7 @@ jobs:
     - name: 📂 Pull Code Repo
       uses: actions/checkout@v4
       with:
-        path: Android # 👈 Forces GitHub to lock the path name safely
+        path: Android # 👈 Safely matches your 'Android' repository name
 
     - name: 🛠️ Load Android Kernel Drivers
       run: |
@@ -19,28 +19,30 @@ jobs:
 
     - name: 🚀 Start System with Docker Compose
       run: |
-        # 1. Force the runner to navigate inside your 'Android' repository folder
+        # 1. Move inside your 'Android' repository folder to prevent the missing file error
         cd Android
         
-        # 2. Check the files to ensure docker-compose.yml is here
+        # 2. Print files to log tracking for verification
         ls -la
         
-        # 3. Pull and launch your mobile core containers
+        # 3. Pull and launch the mobile containers
         docker compose up -d
 
-    - name: 🌐 Print Public Web URL
+    - name: 🌐 Bind to Domain and Print Connection Link
       run: |
-        # Force the logger to look inside the active 'Android' repository directory
         cd Android
         
         echo "⏰ Waiting 10 seconds for initialization..."
         sleep 10
         echo "=========================================================="
-        echo "👇 OPEN THIS WEBSITE LINK ON YOUR PHONE TO CONTROL IT:"
+        echo "👇 YOUR ONLINE PHONE WILL ROUTE TO:"
+        echo "=========================================================="
+        echo "🌐 https://biui.co.vn"
         echo "=========================================================="
         
-        # Pulls your free live URL stream straight out of the active network container
-        docker compose logs public-tunnel 2>&1 | grep -o 'https://.*\.trycloudflare\.com' | head -n 1
+        # Pulls live streaming status data for your visual checks
+        docker compose logs public-tunnel 2>&1 | head -n 20
         
         # Keeps your GitHub action server hosting active for 6 hours
         sleep 21600
+        
