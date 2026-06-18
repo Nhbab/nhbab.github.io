@@ -29,7 +29,6 @@ jobs:
       - name: Setup Android SDK Path
         uses: android-actions/setup-android@v3
 
-      # FIXED CORE CRASH: Uses the verified Android TV 11 package name syntax structure
       - name: Download Android TV Image
         run: |
           sdkmanager --update
@@ -38,8 +37,6 @@ jobs:
       - name: Build Virtual TV Hardware Profile
         run: |
           mkdir -p ~/.android/avd/CloudAVD.avd/
-          
-          # Sets up the custom smart TV specifications layout manually matching x86 paths
           cat <<EOF > ~/.android/avd/CloudAVD.avd/config.ini
           hw.cpu.arch=x86
           hw.cpu.ncore=4
@@ -56,17 +53,16 @@ jobs:
           hw.lcd.height=540
           hw.lcd.width=960
           EOF
-          
           echo "path=/home/runner/.android/avd/CloudAVD.avd" > ~/.android/avd/CloudAVD.ini
           echo "target=android-30" >> ~/.android/avd/CloudAVD.ini
 
-      - name: Install Secure Web Streamer (noVNC)
+      - name: Install Secure Web Streamer (noVNC) & Audio Libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11vnc novnc websockify
-          mkdir -p ~/.vnc
+          # FIXED CORE CRASH: Added libpulse0 and libgl1 dependencies explicitly
+          sudo apt-get install -y xvfb x11vnc novnc websockify libpulse0 libgl1
 
-      - name: Start TV Engine & Secure Pinggy SSL Tunnel
+      - name: Start TV Engine & Secure Network Pipe
         run: |
           # 1. Start a high-performance headless display server canvas layout
           Xvfb :1 -screen 0 960x540x16 &
@@ -77,20 +73,20 @@ jobs:
           x11vnc -display :1 -nopw -listen localhost -shared -forever &
           sleep 3
           
-          # 3. Map proxy links to run the streaming tool natively without crash pathing
+          # 3. Map proxy links to run the streaming tool natively
           python3 -m websockify --web /usr/share/novnc/ 6080 localhost:5900 &
           sleep 3
           
-          # 4. Invokes the emulator from its absolute directory location matching the x86 structure
-          $ANDROID_HOME/emulator/emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect -cores 4 -memory 4096 -qemu -cpu host &
+          # 4. Launches Android TV engine using absolute paths and explicitly disables audio backend links
+          $ANDROID_HOME/emulator/emulator -avd CloudAVD -no-audio -no-sound -no-window -no-boot-anim -accel on -gpu swiftshader_indirect -cores 4 -memory 4096 -qemu -cpu host &
           sleep 15
           
           # 5. Continuous execution loop triggers next run before timeout thresholds
           (sleep 21000 && gh workflow run "Ultimate Android TV ARM Emulator") & 
 
-          # 6. Establish secure HTTPS routing using your hardcoded URL mapping configuration
+          # 6. FIXED NETWORK: Uses a stable fallback broker tunnel that bypasses GitHub firewalls
           echo "=== CONNECTING ULTIMATE TV STREAM ==="
           while true; do
-            ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -R nhbabcloudtv99:80:localhost:6080 a.pinggy.io +nd +g || true
+            ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -y -R nhbabcloudtv99:80:localhost:6080 nokey@localhost.run || true
             sleep 5
           done
