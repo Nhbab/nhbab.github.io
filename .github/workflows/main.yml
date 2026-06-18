@@ -36,8 +36,9 @@ jobs:
           mkdir -p ~/.vnc
           echo "password123" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
-
       - name: Start Emulator & Stream to Web
+        env:
+          SUB_NAME: ${{ secrets.MY_SUBDOMAIN }}
         run: |
           # Start internal desktop server
           vncserver :1 -geometry 1280x720 -depth 24
@@ -48,6 +49,5 @@ jobs:
           # Launch hardware-accelerated Android emulator
           DISPLAY=:1 $ANDROID_HOME/emulator/emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect &
           
-          # Open a completely free web tunnel link and output it to the console log
-          echo "=== COPY THE HTTP LINK GENERATED BELOW ==="
-          ssh -R 80:localhost:6080 nokey@localhost.run
+          # Securely assign your custom domain and keep the cloud runner alive
+          ssh -R ${SUB_NAME}:80:localhost:6080 nokey@localhost.run
