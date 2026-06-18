@@ -25,21 +25,21 @@ jobs:
           docker stop $(docker ps -aq) || true
           docker rm -f $(docker ps -aq) || true
 
-      # SỬA LỖI PULL DENIED: Dùng gói tổng hợp tích hợp sẵn Web VNC gốc công khai 100%
+      # SỬA LỖI MANIFEST: Thay đổi tag từ x86-11.0 thành emulator_11.0 chuẩn Docker Hub
       - name: Deploy Unified Android TV & VNC Core
         run: |
-          # Khởi chạy một Container duy nhất chứa cả hệ điều hành TV lẫn giao diện Web canvas trên cổng 6080
+          # Khởi chạy thiết bị giả lập cấu hình dưới dạng giao diện Tivi (Sony Bravia) màn hình ngang
           docker run -d --privileged --name android_tv \
             --device /dev/kvm \
             -p 6080:6080 \
-            -e DEVICE="Android TV" \
-            -e PACKAGE="system-images;android-30;google_apis;x86_64" \
-            budtmo/docker-android:x86-11.0
+            -e EMULATOR_DEVICE="Sony Bravia 4K" \
+            -e WEB_VNC=true \
+            budtmo/docker-android:emulator_11.0
             
-          # Đợi 25 giây để hệ thống Docker giải nén phân vùng đĩa ảo đám mây
-          sleep 25
+          # Đợi 30 giây để hệ thống Docker nạp phân vùng đĩa ảo Smart TV
+          sleep 30
 
-      # CONTAINER ĐƯỜNG TRUYỀN: Kích hoạt gói Ngrok liên kết thẳng vào cổng truyền hình ảnh 6080
+      # CONTAINER ĐƯỜNG TRUYỀN: Ngrok bám sát cổng 6080 để stream hình ảnh
       - name: Launch Ngrok Connection Agent
         run: |
           docker run -d --name ngrok_agent \
@@ -51,7 +51,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Vòng lặp xoay vòng kích hoạt máy chủ lặp vô tận sau mỗi 5 tiếng 50 phút
+          # Vòng lặp kích hoạt duy trì máy chủ chạy vô tận không giới hạn thời gian
           (sleep 21000 && gh workflow run "Ultimate Android TV ARM Emulator" || true) & 
           
           echo "=== PURE ANDROID TV DOCKER EMULATOR IS ONLINE ==="
