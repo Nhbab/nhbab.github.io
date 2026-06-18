@@ -1,67 +1,44 @@
-name: Deploy Error-Free Android VM
+name: Linux Android 16 Build
 on: 
-  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+  workflow_dispatch:
 
 permissions:
-  contents: write # Grants the runner permission to update config.js automatically
+  contents: write
 
 jobs:
-  boot-virtual-machine:
-    runs-on: macos-14 # Required for Apple Silicon hardware acceleration
+  run-linux-emulator:
+    # Swapped from macOS to standard Ubuntu Linux
+    runs-on: ubuntu-latest 
     steps:
-      - name: Checkout Repository Code
+      - name: Checkout Codebase
         uses: actions/checkout@v4
 
-      - name: Initialize OpenJDK Environment
+      - name: Set up Java Environment
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Provision Display Server & Routing Tooling
-        run: |
-          brew install tigervnc novnc
-          npm install -g localtunnel
-
-      - name: Launch Android VM & Auto-Publish Link
+      - name: Enable and Run Headless Android VM
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 36        # API 36 corresponds to Android 16
+          api-level: 36         # Android 16
           target: google_apis  
-          arch: aarch64        # Matches the macOS ARM64 runner architecture
+          arch: x86_64          # Standard Linux Intel/AMD architecture
           profile: Pixel_8     
+          # Turn off hardware graphics requirements for standard Linux systems
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader -no-audio -no-boot-anim
           script: |
-            echo "1. Initializing VNC display matrix environment..."
-            vncserver :1 -geometry 1280x720 -depth 24 -SecurityTypes None
+            echo "Android 16 Core successfully initialized on Linux Host!"
             
-            echo "2. Transforming video data to browser socket..."
-            novnc_proxy --vnc localhost:5901 --listen 6080 &
+            # Wait for the system to fully report a responsive state
+            adb wait-for-device
             
-            echo "3. Publishing live tunnel..."
-            # Route output log to a text file to capture the url dynamically
-            lt --port 6080 > tunnel_log.txt &
-            
-            echo "4. Extracting and pushing link to GitHub Pages..."
-            # Wait a few seconds for the network tunnel link to generate
-            sleep 10
-            TUNNEL_URL=$(grep -o 'https://[^ ]*' tunnel_log.txt | head -n 1)
-            
-            if [ -n "$TUNNEL_URL" ]; then
-              echo "Found Live URL: $TUNNEL_URL"
-              # Write the variable directly into the javascript file
-              echo "const LIVE_VM_URL = '$TUNNEL_URL';" > config.js
-              
-              # Automatically commit and push the updated config to GitHub
-              git config --global user.name "github-actions[bot]"
-              git config --global user.email "github-actions[bot]@://github.com"
-              git add config.js
-              git commit -m "docs: auto-update live Android VM link [skip ci]"
-              git push
-            else
-              echo "Failed to retrieve tunnel endpoint."
-              echo "const LIVE_VM_URL = '';" > config.js
-            fi
-            
-            echo "5. Keeping Android 16 Virtual Machine open..."
+            echo "Listing verified virtual attachments:"
             adb devices
-            sleep 21600 # Keeps the cloud VM open for 6 hours
+            
+            echo "Extracting system properties..."
+            adb shell getprop ro.build.version.release
+            
+            echo "Tasks executed safely. Shuts down immediately to maintain TOS compliance."
