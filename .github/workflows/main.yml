@@ -1,29 +1,54 @@
-name: 🚀 Build and Validate Online Phone
+name: 📱 Run Free Cloud Phone on GitHub
 
 on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch: # 👈 Creates a button on your phone screen to run it manually
 
 jobs:
-  validate-and-test:
-    name: Validate Docker Engine Configurations
-    runs-on: ubuntu-latest
-
+  run-android-phone:
+    runs-on: ubuntu-latest # 👈 GitHub gives you this server for free
+    
     steps:
-    # 1. Pull code straight down into the GitHub virtual runner workspace
-    - name: Checkout Repository Code
+    - name: 🚀 Step 1 - Pull Code From Repo
       uses: actions/checkout@v4
 
-    # 2. Initialize a standard Docker environment context to verify syntax
-    - name: Setup Docker and Compose Environment
+    - name: 🛠️ Step 2 - Inject Mobile System Drivers
       run: |
-        docker --version
-        docker compose version
+        sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" || true
 
-    # 3. Perform a dry-run parse on your compose orchestration block
-    - name: Verify Compose File Syntax Validation
+    - name: 🏗️ Step 3 - Start Virtual Android Phone
       run: |
-        docker compose config
+        # Download and launch ReDroid completely inside GitHub's infrastructure
+        docker run -d --privileged \
+          --name android_core \
+          -v ~/android_data:/data \
+          redroid/redroid:13.0.0-latest \
+          androidboot.use_redroid_stream=1 redroid.gpu.mode=guest
+
+    - name: 💻 Step 4 - Launch Web UI Controller
+      run: |
+        # Turn the running container into an interactive website interface
+        docker run -d \
+          --name android_web_ui \
+          --link android_core:android_core \
+          -p 8000:8000 \
+          shmayro/scrcpy-web:latest \
+          sh -c "adb connect android_core:5555 && npm start"
+
+    - name: 🌐 Step 5 - Create Free URL Connection
+      run: |
+        echo "⏰ Waiting 10 seconds for phone booting sequence..."
+        sleep 10
         
+        echo "=========================================================="
+        echo "📱 YOUR ONLINE PHONE IS READY! CLICK THE LINK BELOW:"
+        echo "=========================================================="
+        
+        # Starts a tunnel straight from GitHub's server out to the public internet
+        docker run --rm \
+          --network host \
+          cloudflare/cloudflared:latest \
+          tunnel --no-autoupdate run --url http://localhost:8000 2>&1 | grep -o 'https://.*\.trycloudflare\.com' | head -n 1
+        
+        # Keeps the GitHub Action alive for 6 hours so it stays online
+        echo "⌛ Phone will remain online for 6 hours. Keep this tab open."
+        sleep 21600 
