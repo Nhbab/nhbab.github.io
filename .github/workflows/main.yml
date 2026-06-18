@@ -36,11 +36,18 @@ jobs:
 
       - name: Build Virtual Device with Max RAM Allocation
         run: |
-          mkdir -p ~/.android/avd/
-          echo "no" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --force
+          # 1. Force create the primary configuration directories ahead of time
+          mkdir -p ~/.android/avd/CloudAVD.avd
+          
+          # 2. Pipe standard default answers directly to bypass the interactive hardware prompt
+          printf "no\n" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --force
+          
+          # 3. Securely create and append high-performance specifications
           touch ~/.android/avd/CloudAVD.avd/config.ini
           echo "hw.ramSize=4096" >> ~/.android/avd/CloudAVD.avd/config.ini
           echo "hw.gpu.mode=host" >> ~/.android/avd/CloudAVD.avd/config.ini
+          echo "vm.heapSize=512" >> ~/.android/avd/CloudAVD.avd/config.ini
+
 
       - name: Install VNC Desktop & Web Streamer
         run: |
