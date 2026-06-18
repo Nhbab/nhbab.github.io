@@ -1,36 +1,90 @@
-name: Ubuntu GUI Virtual Machine
+name: Android TV Remote Control CI
 
-on: 
-  workflow_dispatch: # Allows you to manually trigger the VM
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  android-tv-virtual-machine:
+    runs-on: macos-latest
+    timeout-minutes: 25
+
     steps:
-    - name: Checkout Repository
+    - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install Ubuntu Desktop GUI and VNC Server
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y xfce4 xfce4-goodies vnc4server tightvncserver
-        mkdir ~/.vnc
-        echo "password123" | vncpasswd -f > ~/.vnc/passwd
-        chmod 600 ~/.vnc/passwd
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-    - name: Set up Ngrok Tunnel
-      run: |
-        curl -s https://amazonaws.com | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/at/sources.list.d/ngrok.list
-        sudo apt-get update && sudo apt-get install ngrok
-        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+    - name: Setup Gradle Cache
+      uses: gradle/actions/setup-gradle@v4
 
-    - name: Start VNC and Ngrok Tunnel
-      run: |
-        vncserver :1 -geometry 1280x800 -depth 24
-        ngrok tcp 5901 --log=stdout &
-        sleep 5
-        curl --silent http://127.0.0 | jq '.tunnels[0].public_url'
+    - name: Grant Execute Permission for Gradlew
+      run: chmod +x gradlew
+
+    # BẮT ĐẦU CHẠY MÁY ẢO VÀ ĐIỀU KHIỂN REMOTE
+    - name: Run Android TV VM & Control Remote
+      uses: ReactiveCircus/android-emulator-runner@v2
+      with:
+        api-level: 30
+        target: android-tv
+        arch: x86_64
+        profile: tv_1080p
+        force-avd-creation: true
+        disable-animations: true
+        emulator-options: -no-window -no-audio -no-boot-anim -camera-back none
         
-    - name: Keep VM Alive
-      run: sleep 21600 # Runs the machine for up to 6 hours
+        script: |
+          echo "==== MÁY ẢO ANDROID TV ĐÃ KHỞI ĐỘNG XONG ===="
+          
+          # Đợi hệ thống ổn định hoàn toàn trong 10 giây
+          sleep 10
+          
+          echo "==== ĐANG THỰC HIỆN ĐIỀU KHIỂN REMOTE TV (ADB KEYEVENTS) ===="
+          
+          # 1. Bấm nút HOME để đảm bảo đang ở màn hình chính Android TV
+          adb shell input keyevent 3
+          sleep 2
+          
+          # 2. Giả lập bấm nút XUỐNG (DPAD_DOWN) trên Remote
+          echo "-> Bấm nút Xuống"
+          adb shell input keyevent 20
+          sleep 1
+          
+          # 3. Giả lập bấm nút PHẢI (DPAD_RIGHT) để di chuyển qua các ứng dụng
+          echo "-> Bấm nút Phải"
+          adb shell input keyevent 22
+          sleep 1
+          
+          # 4. Giả lập bấm nút OK / ENTER (DPAD_CENTER) để chọn
+          echo "-> Bấm nút OK"
+          adb shell input keyevent 23
+          sleep 3
+          
+          # 5. Mở trực tiếp ứng dụng TV của bạn (Thay 'com.example.tvapp' bằng package_id của bạn)
+          # Nếu bạn chưa build app, lệnh này sẽ báo lỗi nhẹ nhưng không làm sập quy trình CI
+          echo "-> Đang khởi chạy ứng dụng TV của bạn..."
+          adb shell monkey -p com.example.tvapp -c android.intent.category.LAUNCHER 1 || true
+          sleep 5
+          
+          # 6. Bấm nút QUAY LẠI (BACK) trên Remote
+          echo "-> Bấm nút Quay lại"
+          adb shell input keyevent 4
+          sleep 1
+
+          echo "==== CHỤP ẢNH MÀN HÌNH ĐỂ KIỂM TRA KẾT QUẢ ĐIỀU KHIỂN ===="
+          # Chụp ảnh màn hình TV hiện tại và lưu vào thư mục máy chủ
+          adb shell screencap -p /sdcard/tv_screen.png
+          adb pull /sdcard/tv_screen.png .
+
+    # BƯỚC XUẤT ẢNH: Đẩy ảnh chụp màn hình TV lên tab Artifact của GitHub để bạn tải về xem
+    - name: Upload TV Screen Result
+      uses: actions/upload-artifact@v4
+      with:
+        name: tv-remote-control-screenshot
+        path: tv_screen.png
