@@ -20,11 +20,12 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo chmod 666 /dev/kvm
 
+      # SỬA TẬN GỐC LỖI CURL 23: Tải vào thư mục tạm /tmp để không bị lỗi đĩa cứng hoặc quyền ghi file
       - name: Setup and Authenticate Ngrok Agent
         run: |
-          curl -sSOL https://equinox.io
-          sudo tar -xzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
-          rm -f ngrok-v3-stable-linux-amd64.tgz
+          curl -sSOL --output-dir /tmp https://equinox.io
+          sudo tar -xzf /tmp/ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
+          rm -f /tmp/ngrok-v3-stable-linux-amd64.tgz
           ngrok config add-authtoken rd_3FJNUZLuxuKSUetomzVf2PqUeHX
 
       - name: Deploy Redroid Engine & Web VNC Dashboard
@@ -32,7 +33,7 @@ jobs:
           sudo modprobe ashmem_linux || true
           sudo modprobe binder_linux || true
           
-          # Khởi chạy lõi Android TV 11 ARM-Translated mượt mà
+          # Khởi chạy lõi Android TV 11 ARM-Translated siêu nhẹ
           docker run -d --privileged --name redroid_core \
             --device /dev/kvm \
             -p 5555:5555 \
@@ -52,7 +53,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # SỬA LỖI 23: Thêm lệnh || true để nếu token lặp bị chặn, máy chủ hiện tại vẫn duy trì kết nối bình thường
           (sleep 21000 && gh workflow run "Ultimate Android TV ARM Emulator" || true) & 
 
           echo "=== CONNECTING TO FIXED NGROK DOMAIN ENGINE ==="
