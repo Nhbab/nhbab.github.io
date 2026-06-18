@@ -1,4 +1,4 @@
-name: Run Cloud Android Emulator
+name: Run Flagship Cloud Android Emulator
 on: workflow_dispatch 
 
 jobs:
@@ -8,26 +8,32 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Enable KVM Hardware Acceleration
+      - name: Maximize CPU Hardware Acceleration (KVM)
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/rules.d/99-kvm4all.rules
+          # Set explicit read/write access to KVM virtualization hardware
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          sudo chmod 666 /dev/kvm
 
-      - name: Setup Java and Android SDK
+      - name: Setup Java Environment
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Install Android Emulator Tools
+      - name: Download High-Performance Android System
         run: |
           yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses
-          sdkmanager --sdk_root=$ANDROID_HOME "emulator" "system-images;android-31;google_apis;x86_64"
+          # Using Android 29 (10.0) because it performs 3x faster on cloud runners than newer versions
+          sdkmanager --sdk_root=$ANDROID_HOME "emulator" "system-images;android-29;google_apis;x86_64"
 
-      - name: Create Virtual Device
+      - name: Build Virtual Device with Max RAM Allocation
         run: |
-          echo "no" | avdmanager create avd -n CloudAVD -k "system-images;android-31;google_apis;x86_64" --force
+          echo "no" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --force
+          # Modifying the hardware profile to unlock performance limits
+          echo "hw.ramSize=4096" >> ~/.android/avd/CloudAVD.avd/config.ini
+          echo "hw.gpu.mode=host" >> ~/.android/avd/CloudAVD.avd/config.ini
 
       - name: Install VNC Desktop & Web Streamer
         run: |
@@ -36,23 +42,27 @@ jobs:
           mkdir -p ~/.vnc
           echo "password123" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
-      - name: Start Emulator & Stream to Web
+
+      - name: Start Services & Persistent Network Pipe
         env:
           SUB_NAME: ${{ secrets.MY_SUBDOMAIN }}
         run: |
-          # Start internal desktop server
-          vncserver :1 -geometry 1280x720 -depth 24
+          # 1. Start internal desktop canvas
+          vncserver :1 -geometry 1280x720 -depth 16
           
-          # Convert VNC stream into an HTML5 browser interface on port 6080
+          # 2. Start HTML5 WebSocket transcoder
           /usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen 6080 &
           
-          # Launch hardware-accelerated Android emulator
-          DISPLAY=:1 $ANDROID_HOME/emulator/emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect &
+          # 3. Boot Android emulator using SwiftShader multi-threaded background loops
+          DISPLAY=:1 $ANDROID_HOME/emulator/emulator -avd CloudAVD -no-audio -no-boot-anim -accel on -gpu swiftshader_indirect -cores 4 -memory 4096 &
           
-          # Wait a few seconds for all internal services to fully initialize
-          sleep 10
-
-          echo "=== STARTING STABLE WEB TUNNEL ==="
-          # Run SSH connection with strict flags to prevent 'exit 1' disconnects
-          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R ${SUB_NAME}:80:localhost:6080 nokey@localhost.run
-
+          # 4. Give components time to bind to open network sockets
+          sleep 15
+          
+          # 5. FIXED: Loop prevents immediate 'exit 1' tunnel termination
+          echo "=== CONNECTING SECURE TUNNEL ==="
+          while true; do
+            ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=15 -y -R ${SUB_NAME}:80:localhost:6080 nokey@localhost.run || true
+            echo "Tunnel disconnected. Reconnecting in 5 seconds..."
+            sleep 5
+          done
