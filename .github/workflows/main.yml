@@ -20,7 +20,6 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo chmod 666 /dev/kvm
 
-      # LỆNH GỘP NGROK HOÀN HẢO: Tải trực tiếp file nhị phân độc lập, bỏ hẳn cơ chế apt-get để xóa bỏ lỗi 100
       - name: Setup and Authenticate Ngrok Agent
         run: |
           curl -sSOL https://equinox.io
@@ -28,21 +27,19 @@ jobs:
           rm -f ngrok-v3-stable-linux-amd64.tgz
           ngrok config add-authtoken rd_3FJNUZLuxuKSUetomzVf2PqUeHX
 
-      # CHẠY REDROID TV CORE: Framework mượt nhất, tự nhận diện tầng dịch mã ARM và không dính lỗi release 
       - name: Deploy Redroid Engine & Web VNC Dashboard
         run: |
-          # 1. Kích hoạt module nhân hệ thống ảo hóa cho Docker container
           sudo modprobe ashmem_linux || true
           sudo modprobe binder_linux || true
           
-          # 2. Khởi chạy lõi Android TV 11 ARM-Translated siêu nhẹ
+          # Khởi chạy lõi Android TV 11 ARM-Translated mượt mà
           docker run -d --privileged --name redroid_core \
             --device /dev/kvm \
             -p 5555:5555 \
             redroid/redroid:11.0.0-latest \
             androidboot.hardware=redroid redroid.width=960 redroid.height=540 redroid.fps=30
             
-          # 3. Khởi chạy giao diện stream màn hình Web VNC tự động kết nối vào lõi Android
+          # Khởi chạy giao diện stream màn hình Web VNC tự động kết nối vào lõi Android
           docker run -d --name web_canvas \
             -p 6080:80 \
             -e ADB_HOST=localhost \
@@ -52,9 +49,11 @@ jobs:
           sleep 15
 
       - name: Start TV Engine & Permanent Ngrok Tunnel
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Chu kỳ tự khởi động lại luồng chạy sau mỗi 5 tiếng 50 phút để duy trì vô tận
-          (sleep 21000 && gh workflow run "Ultimate Android TV ARM Emulator") & 
+          # SỬA LỖI 23: Thêm lệnh || true để nếu token lặp bị chặn, máy chủ hiện tại vẫn duy trì kết nối bình thường
+          (sleep 21000 && gh workflow run "Ultimate Android TV ARM Emulator" || true) & 
 
           echo "=== CONNECTING TO FIXED NGROK DOMAIN ENGINE ==="
           while true; do
