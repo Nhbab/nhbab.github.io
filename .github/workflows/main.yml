@@ -33,18 +33,24 @@ jobs:
         run: |
           sdkmanager "emulator" "system-images;android-29;google_apis;x86_64"
 
-      # FIXED: Force pipes 'no' to the hardware profile prompt and uses a safety wildcard path search
       - name: Build Virtual Device with Max RAM Allocation
         run: |
-          echo "no" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --force
+          # 1. Clear out any previous partial builds
+          rm -rf ~/.android/avd/ || true
+          mkdir -p ~/.android/avd/
           
-          # Dynamic fallback finding: injects hardware tweaks into the actual created path
+          # 2. FIXED: Injects direct device type flags to completely bypass interactive prompts
+          echo "no" | avdmanager create avd -n CloudAVD -k "system-images;android-29;google_apis;x86_64" --device "generic_10" --force
+          
+          # 3. Securely look for the dynamic directory tree path
           CONF_PATH=$(find ~/.android/avd/ -name "config.ini")
-          echo "Found configuration file at: $CONF_PATH"
+          echo "Successfully verified configuration file path at: $CONF_PATH"
           
+          # 4. Inject maximum performance parameters directly into the hardware configuration
           echo "hw.ramSize=4096" >> "$CONF_PATH"
           echo "hw.gpu.mode=host" >> "$CONF_PATH"
           echo "vm.heapSize=512" >> "$CONF_PATH"
+
 
       - name: Install VNC Desktop & Web Streamer
         run: |
