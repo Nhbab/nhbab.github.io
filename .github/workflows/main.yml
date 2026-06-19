@@ -1,0 +1,30 @@
+name: Permanent Android TV Server
+on:
+  workflow_dispatch: # Allows you to start it manually from your phone
+
+jobs:
+  run-vm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install and Run Android Emulator
+        run: |
+          # Enable hardware virtualization inside the GitHub VM
+          sudo apt-get update
+          sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
+          
+          # Start the Android Emulator with noVNC enabled
+          docker run -d -p 6080:6080 -e WEB_VNC=true --device /dev/kvm --name android-tv budtmo/docker-android:emulator_11.0
+
+      - name: Start Permanent Pinggy Tunnel
+        run: |
+          # Loop keeps the VM alive and reconnects Pinggy if it drops
+          while true; do
+            echo "Starting permanent connection..."
+            ssh -p 443 \
+                -o StrictHostKeyChecking=no \
+                -o ServerAliveInterval=30 \
+                -o ServerAliveCountMax=3 \
+                -R0:localhost:6080 RPLfy23ckPE@pro.pinggy.io
+            echo "Tunnel disconnected. Reconnecting..."
+            sleep 5
+          done
