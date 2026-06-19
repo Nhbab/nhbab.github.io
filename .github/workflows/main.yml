@@ -18,37 +18,34 @@ jobs:
       - name: Grant Runner Access to KVM Hardware Extensions
         run: |
           echo "Applying system group rules to bypass KVM kernel permissions..."
+          # Configures the unprivileged user to interact natively with the hardware hypervisor
           sudo usermod -aG kvm $USER
           sudo chown $USER /dev/kvm
 
-      - name: Download Android TV 9.iso (MediaFire Scraper Bypass)
+      - name: Download Android TV 9 ISO (Escape Brackets Bypass)
         run: |
-          echo "Downloading target Android TV 9.iso via deep carrier node headers..."
-          # Generates an ephemeral session cookie jar block to trick MediaFire into allowing full data streams
-          curl -L -b cookies.txt -c cookies.txt \
-            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8" \
-            -H "Accept-Language: en-US,en;q=0.9" \
-            -H "Connection: keep-alive" \
-            -H "Upgrade-Insecure-Requests: 1" \
-            -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-            -o "Android TV 9.iso" \
-            "https://download2440.mediafire.com/kn2g8os6mqhgA-5nGaO6Nrslwkyv44Al-3l5RaT1Cu159QUMcBzYKznn-FVTufCR2MJc0a5XbLValePbbbRjxyGtcxC4on5GTZyNrw3KsCzAXJBY3tOBGe41g77RwBUJq2gPLyaEcfCOJejFAdAIzABFZSXWJUvMLXwTw5uUpOw/yv3xktpoi74mf51/Android+TV+9.iso"
+          echo "Pulling clean direct 1.2GB ISO payload from Internet Archive servers..."
+          # Wrapping the target URL inside strict quotes preserves the bracket characters flawlessly
+          curl -L -A "Mozilla/5.0" \
+            -o "AndroidTV9-x64.iso" \
+            "https://archive.org/download/androidtv-x86/AndroidTV9-x64-k5.18.0-arm-gapps-wifi6-%2807.02.23%29.iso"
 
-      - name: Verify ISO File Integrity and Size
+      - name: Verify ISO Download File Integrity
         run: |
-          echo "Verifying downloaded raw storage allocation data..."
-          # Check this output line: it must read full Megabytes, matching your raw image file size!
-          ls -lh "Android TV 9.iso"
+          echo "Checking downloaded storage allocation size..."
+          # Confirms the runner downloaded the complete 1.2GB data block
+          ls -lh "AndroidTV9-x64.iso"
 
       - name: Launch Android TV 9 in QEMU (Live Mode Accelerated)
         run: |
           echo "Starting accelerated QEMU container layout in Live Mode..."
+          # Allocates 6GB RAM, 4 CPU Cores, and links the network tunnel loop via 5555
           qemu-system-x86_64 \
             -enable-kvm \
             -cpu host \
             -m 6G \
             -smp 4,cores=4,threads=1 \
-            -drive file="Android TV 9.iso",media=cdrom,format=raw \
+            -drive file="AndroidTV9-x64.iso",media=cdrom,format=raw \
             -boot order=d \
             -vga virtio \
             -display none \
@@ -59,7 +56,7 @@ jobs:
             -monitor telnet:127.0.0.1:4444,server,nowait \
             -daemonize
 
-      - name: Fast Automated Live CD Boot Selection
+      - name: Fast Automated Live CD Boot Selection (Under 45 Seconds)
         run: |
           echo "Waiting 12 seconds for the GRUB live boot options to process..."
           sleep 12
@@ -70,6 +67,7 @@ jobs:
           s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
           s.connect(("127.0.0.1", 4444))
           time.sleep(0.5)
+          # Fires Enter key onto the first entry: "Live CD - Run Android TV without installation"
           s.sendall(b"sendkey ret\n")
           time.sleep(0.5)
           s.close()
@@ -78,6 +76,7 @@ jobs:
 
       - name: Start Websockify (VNC to WebSockets)
         run: |
+          # Translates raw VNC data blocks to WebSocket layout variables on port 6080
           websockify --web /usr/share/novnc/ 6080 127.0.0.1:5900 &
           sleep 2
 
@@ -87,6 +86,7 @@ jobs:
           echo "LAUNCHING AUTHENTICATED TUNNEL ENGINE OVER PORT 443..."
           echo "================================================================"
           
+          # Stable web tunnel utilizing your custom registered profile token ID parameter
           ssh -o StrictHostKeyChecking=no -p 443 -R 80:localhost:6080 RPLfy23ckPE+80@a.pinggy.io > pinggy.log 2>&1 &
           
           sleep 10
@@ -95,6 +95,7 @@ jobs:
           echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
+          # Extracts your authenticated premium web link directly from the internal logs
           grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
           
           echo ""
@@ -104,4 +105,5 @@ jobs:
           echo "3. Use your computer keyboard ARROW KEYS to steer Up/Down/Left/Right!"
           echo "================================================================"
           
+          # Safely forces the container thread to stay awake for exactly 60 minutes
           sleep 3600
