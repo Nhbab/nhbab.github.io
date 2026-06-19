@@ -1,11 +1,12 @@
-name: Android SDK TV 9 Native 1 Hour VM
+name: Android SDK TV 9 Cloud 1 Hour VM
 
 on:
   workflow_dispatch:
 
 jobs:
   run-sdk-tv:
-    runs-on: macos-13 # macOS provides native hardware acceleration for the official Android emulator
+    # Forces the job to run on GitHub's hosted macOS environment for free native hardware acceleration
+    runs-on: macos-13
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -18,42 +19,44 @@ jobs:
 
       - name: Install Android SDK Components and System Image
         run: |
-          echo "Installing SDK Command Line Tools and native Android TV image..."
-          # Accept licenses automatically
+          echo "Installing SDK Tools and official Android TV image onto GitHub runner..."
+          # Accept all licenses automatically
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
           
-          # Download Android TV 9 (API 28) x86_64 system image
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;android-tv;x86_64"
+          # Download official Android TV 9 (API 28) x86 system image
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;android-tv;x86"
           
-          # Create the Android Virtual Device (AVD) profiled as a large 720p TV
+          # Build the virtual device configured as a large widescreen 720p TV
           echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
             --name "Android_TV_9" \
-            --package "system-images;android-28;android-tv;x86_64" \
+            --package "system-images;android-28;android-tv;x86" \
             --device "tv_720p" \
             --force
 
-      - name: Install noVNC and Websockify
+      - name: Install noVNC and Websockify on macOS
         run: |
+          echo "Installing browser remote streaming tools via Homebrew..."
           brew install novnc websockify
 
-      - name: Launch Android SDK TV Emulator (Headless Mode)
+      - name: Launch Android SDK TV Emulator (Headless Acceleration Mode)
         run: |
-          echo "Starting native Android emulator at high performance speeds..."
-          # Launches the official Android emulator headlessly with native VNC display mapping
+          echo "Starting native Android emulator at high performance cloud speeds..."
+          # Launches the emulator headlessly with native VNC display mapping using macOS hardware acceleration (-accel on)
           $ANDROID_HOME/emulator/emulator -avd "Android_TV_9" \
             -no-audio \
             -no-boot-anim \
             -gpu swiftshader_indirect \
             -vnc :0 \
             -accel on \
-            -memory 4096 \
-            -cores 4 \
+            -memory 3072 \
+            -cores 3 \
             -daemonize
 
       - name: Start Websockify (VNC to WebSockets)
         run: |
+          echo "Translating display signals to port 6080..."
           # Maps VNC framework port 5900 onto browser network port 6080
-          websockify --web /opt/homebrew/share/novnc/ --heartbeat 10 6080 127.0.0.1:5900 &
+          /opt/homebrew/bin/websockify --web /opt/homebrew/share/novnc/ --heartbeat 10 6080 127.0.0.1:5900 &
           sleep 2
 
       - name: Generate Public Remote Link and Hold for 1 Hour
@@ -62,13 +65,13 @@ jobs:
           echo "LAUNCHING AUTHENTICATED TUNNEL ENGINE OVER PORT 443..."
           echo "================================================================"
           
-          # Stable web tunnel utilizing your premium profile token code parameter
+          # Secure WebSocket mapping using your verified account token code profile
           ssh -o StrictHostKeyChecking=no -p 443 -R 80:localhost:6080 RPLfy23ckPE+80@a.pinggy.io > pinggy.log 2>&1 &
           
-          sleep 10
+          sleep 12
           
           echo "================================================================"
-          echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
+          echo "--> YOUR GITHUB-HOSTED VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
           # Extract and print out your clickable secure web access url link
