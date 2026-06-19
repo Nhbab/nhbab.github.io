@@ -1,11 +1,11 @@
-name: GTV14 Android TV (Live 1 Hour noVNC)
+name: GTV14 Android TV (Clean 1 Hour noVNC)
 
 on:
   workflow_dispatch:
 
 jobs:
   run-1hour-tv:
-    runs-on: ubuntu-latest
+    runs-runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -17,7 +17,6 @@ jobs:
 
       - name: Download GTV14 Android TV ISO
         run: |
-          echo "Downloading ISO using browser bypass..."
           curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
             -o gtv14_atv.iso \
             "https://sourceforge.net"
@@ -28,7 +27,8 @@ jobs:
 
       - name: Launch GTV14 in QEMU (Headless VNC Server)
         run: |
-          echo "Starting QEMU..."
+          echo "Starting QEMU process cleanly..."
+          # Redirecting raw stdout/stderr outputs prevents log mixing issues in GitHub Actions
           sudo qemu-system-x86_64 \
             -enable-kvm \
             -cpu host \
@@ -42,16 +42,20 @@ jobs:
             -net nic,model=virtio \
             -net user,hostfwd=tcp::5555-:5555 \
             -monitor unix:qemu_control.sock,server,nowait \
-            -daemonize
+            -daemonize > /dev/null 2>&1
 
-      - name: Skip GRUB Boot Menu Automatically
+      - name: Isolated GRUB Boot Menu Skip
         run: |
-          sleep 6
-          echo "sendkey ret" | sudo nc -U qemu_control.sock
+          echo "Waiting 8 seconds for the boot screen to completely settle..."
+          sleep 8
+          
+          echo "Injecting return key via native echo channel..."
+          # Flushing the buffer clean prior to sending the raw keystroke string
+          (echo ""; sleep 1; echo "sendkey ret") | sudo nc -U qemu_control.sock
+          echo "Boot selection delivered successfully."
 
       - name: Start Websockify (VNC to WebSockets)
         run: |
-          echo "Translating raw VNC data to HTML5 WebSockets on port 6080..."
           websockify --web /usr/share/novnc/ 6080 127.0.0.1:5900 &
           sleep 2
 
@@ -75,6 +79,5 @@ jobs:
           echo "4. Use your computer's ARROW KEYS to steer the TV up/down/left/right!"
           echo "================================================================"
           
-          # This forces the GitHub Action worker to sleep perfectly for exactly 60 minutes
-          echo "VM is now locked open for 1 hour. Enjoy!"
+          # Forces the GitHub Actions worker to stay awake for exactly 60 minutes
           sleep 3600
