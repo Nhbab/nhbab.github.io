@@ -19,16 +19,15 @@ jobs:
       - name: Install Android SDK Components, Emulator Core, and System Image
         run: |
           echo "Installing SDK platform prerequisites..."
-          # Accept all Google Android SDK licenses automatically
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
           
-          # FIXED: Explicitly installing the core "emulator" execution engine package binaries
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "emulator" "platform-tools" "platforms;android-28"
-          
-          # Download official Android TV 9 (API 28) x86 system image package
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;android-tv;x86"
           
-          # Create the Android Virtual Device (AVD) profiled as a widescreen 720p TV layout
+          # FIXED: Forced explicit path initialization using ANDROID_AVD_HOME to lock AVD profile definitions
+          mkdir -p "$HOME/.android/avd"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          
           echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
             --name "Android_TV_9" \
             --package "system-images;android-28;android-tv;x86" \
@@ -43,7 +42,9 @@ jobs:
       - name: Launch Android SDK TV Emulator (Software Accelerated Headless)
         run: |
           echo "Starting official Android TV emulator in software execution mode..."
-          # Added the emulator path directly into the execution caller layout block
+          # FIXED: Pass the matching static folder variable path so the engine locates Android_TV_9.ini natively
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          
           $ANDROID_HOME/emulator/emulator -avd "Android_TV_9" \
             -no-window \
             -no-audio \
