@@ -62,7 +62,8 @@ jobs:
       - name: Apply Browser True-Color Patch into noVNC
         run: |
           echo "Injecting canvas color correction filter into noVNC page to fix inverted graphics..."
-          sed -i '/<div id="noVNC_container">/i <style>#noVNC_canvas { filter: hue-rotate(180deg) !important; }</style>' /usr/share/novnc/vnc.html
+          # Fixed with 'sudo' to completely resolve the Permission Denied write block
+          sudo sed -i '/<div id="noVNC_container">/i <style>#noVNC_canvas { filter: hue-rotate(180deg) !important; }</style>' /usr/share/novnc/vnc.html
 
       - name: Start Websockify (VNC to WebSockets)
         run: |
