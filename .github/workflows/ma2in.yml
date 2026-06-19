@@ -37,11 +37,11 @@ jobs:
           cp iso_mount/initrd.img .
           sudo umount iso_mount
 
-      - name: Launch Android TV 9 (Max Speed + High-Definition Resolution)
+      - name: Launch Android TV 9 in QEMU (Direct Device-Level VRAM Fix)
         run: |
           echo "Starting high-performance QEMU container layout..."
-          # Upgraded to -vga virtio with 128MB VRAM for fluid, lightning-fast rendering speed
-          # Injected 'video=1280x720 DPI=160' into the boot parameters to enlarge the viewport and fix the tiny interface layout
+          # Disables generic vga and explicitly creates the virtio-vga device block with 128MB VRAM
+          # Pass 'video=1280x720 DPI=160' to enlarge the viewport canvas footprint and scale icons normally
           qemu-system-x86_64 \
             -enable-kvm \
             -cpu Westmere,+ssse3,+sse4.1,+sse4.2,+popcnt,aes=on \
@@ -51,8 +51,8 @@ jobs:
             -initrd initrd.img \
             -append "root=/dev/ram0 androidboot.selinux=permissive androidboot.hardware=android_x86 SRC=/ vga=788 video=1280x720 DPI=160 SETUPWIZARD=0 EXTMOD=1 quiet" \
             -drive file="AndroidTV9-x64-k5.18.0-arm-gapps-wifi6-(07.02.23).iso",media=cdrom,format=raw \
-            -vga virtio \
-            -global virtio-vga.vgamem_mb=128 \
+            -vga none \
+            -device virtio-vga,vgamem_mb=128 \
             -device virtio-mouse-pci \
             -device virtio-keyboard-pci \
             -display none \
@@ -60,6 +60,7 @@ jobs:
             -vnc 127.0.0.1:0 \
             -net nic,model=virtio \
             -net user,hostfwd=tcp::5555-:5555 \
+            -monitor telnet:127.0.0.1:4444,server,nowait \
             -daemonize
 
       - name: Apply Browser True-Color Patch into noVNC
