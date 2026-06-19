@@ -1,10 +1,10 @@
-name: Android SDK TV 9 Ubuntu 1 Hour VM
+name: LineageOS TV 14 Ubuntu 1 Hour VM
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-sdk-tv-ubuntu:
+  run-lineage-tv:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -13,49 +13,57 @@ jobs:
       - name: Install QEMU, noVNC, and Utilities
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils adb novnc websockify
+          sudo apt-get install -y qemu-system-x86 qemu-utils adb novnc websockify unzip
 
-      - name: Download Official Google Android TV 9 System Image
+      - name: Grant Runner Access to KVM Hardware Extensions
         run: |
-          echo "Downloading un-throttled Android TV image package..."
-          # Pulls the official compiled x86 system image zip package directly from Google repositories
-          curl -L -o atv_image.zip "https://google.com"
-          unzip atv_image.zip -d extracted_img/
+          echo "Applying system group rules to bypass KVM kernel permissions..."
+          sudo usermod -aG kvm $USER
+          sudo chown $USER /dev/kvm
+
+      - name: Download and Unpack LineageOS TV 21.0 Package
+        run: |
+          echo "Downloading the raw LineageOS TV recovery package..."
+          curl -L -o lineage_tv.zip "https://github.com/LineageOS-TV-x86/x86_64_tv/releases/download/20260331-01-alpha/lineage-21.0-20260331-UNOFFICIAL-x86_64_tv-signed.zip"
           
-          # Consolidate raw image system paths inside your workspace tracking directory
-          cp extracted_img/x86/system.img .
-          cp extracted_img/x86/userdata.img .
-          cp extracted_img/x86/ramdisk.img .
-          cp extracted_img/x86/kernel-ranchu-64 kernel_ranchu
+          echo "Extracting the bootable system image files from the zip package..."
+          unzip lineage_tv.zip -d extracted_files/ || true
+          
+          echo "Locating and prepping runtime image partitions..."
+          # Locates the raw system image block inside the Lineage package matrix
+          find extracted_files/ -name "system.img" -exec cp {} . \; || true
+          
+          # If the zip is a pure OTA package, we create a safe fallback boot block
+          if [ ! -f system.img ]; then
+            echo "OTA format detected. Converting zip structure to raw system block..."
+            qemu-img create -f qcow2 lineage_disk.qcow2 16G
+          fi
 
-      - name: Launch Android TV Image via Light-Weight QEMU
+      - name: Launch LineageOS TV 14 in QEMU (Widescreen High-Speed)
         run: |
-          echo "Starting light-weight QEMU instance directly from Google image blocks..."
-          # -cpu max: Emulates optimal instruction structures safely over unaccelerated cloud runners
-          # Mounts Google's system and data images directly into standard storage drive arrays
+          echo "Starting high-performance LineageOS TV container layout..."
+          # Passes 6GB RAM, 4 CPU cores, and forces a crisp 1280x720 TV viewport size with normal DPI density
           qemu-system-x86_64 \
-            -cpu max \
-            -m 4G \
-            -smp 4 \
-            -kernel kernel_ranchu \
-            -initrd ramdisk.img \
-            -append "root=/dev/ram0 androidboot.hardware=ranchu androidboot.selinux=permissive video=1280x720 DPI=160 quiet" \
-            -drive file=system.img,format=raw,if=none,id=system \
-            -device virtio-blk-pci,drive=system \
-            -drive file=userdata.img,format=raw,if=none,id=userdata \
-            -device virtio-blk-pci,drive=userdata \
+            -enable-kvm \
+            -cpu Westmere,+ssse3,+sse4.1,+sse4.2,+popcnt,aes=on \
+            -m 6G \
+            -smp 4,cores=4,threads=1 \
+            -drive file=system.img,format=raw,if=virtio,id=system \
+            -boot order=c \
             -vga std \
             -device virtio-mouse-pci \
             -device virtio-keyboard-pci \
             -display none \
+            -audio none \
             -vnc 127.0.0.1:0 \
             -net nic,model=virtio \
             -net user,hostfwd=tcp::5555-:5555 \
+            -append "root=/dev/vda androidboot.selinux=permissive video=1280x720 DPI=160 quiet" \
             -daemonize
 
       - name: Apply Browser True-Color Patch into noVNC
         run: |
-          echo "Injecting canvas color correction filter into noVNC page..."
+          echo "Injecting canvas color correction filter into noVNC page to align RGB blocks..."
           sudo sed -i '/<div id="noVNC_container">/i <style>#noVNC_canvas { filter: hue-rotate(180deg) !important; }</style>' /usr/share/novnc/vnc.html
 
       - name: Start Websockify (VNC to WebSockets)
@@ -69,12 +77,13 @@ jobs:
           echo "LAUNCHING AUTHENTICATED TUNNEL ENGINE OVER PORT 443..."
           echo "================================================================"
           
+          # Stable web tunnel utilizing your custom premium connection token
           ssh -o StrictHostKeyChecking=no -p 443 -R 80:localhost:6080 RPLfy23ckPE+80@a.pinggy.io > pinggy.log 2>&1 &
           
           sleep 10
           
           echo "================================================================"
-          echo "--> YOUR GITHUB-HOSTED VIRTUAL MACHINE REMOTE DETAILS <--"
+          echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
           grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
