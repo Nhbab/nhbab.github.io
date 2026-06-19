@@ -5,7 +5,6 @@ on:
 
 jobs:
   run-sdk-tv-macos:
-    # Runs entirely on GitHub-hosted cloud architecture for free native hardware acceleration
     runs-on: macos-latest
     steps:
       - name: Checkout Code
@@ -23,27 +22,31 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
           
           echo "Downloading official Android TV 9 system image..."
-          # FIXED: Switched package target string from x86_64 to x86 to match Google Repository lists
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;android-tv;x86" "emulator" "platform-tools"
           
           echo "Building virtual device with a large 720p TV viewport profile..."
-          # FIXED: Updated the packaging locator flag here to reference the verified x86 build
           echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
             --name "Android_TV_9" \
             --package "system-images;android-28;android-tv;x86" \
             --device "tv_720p" \
             --force
 
-      - name: Install noVNC and Websockify via Homebrew
+      - name: Install and Extract noVNC Repository and Websockify via Homebrew
         run: |
-          echo "Installing remote streaming tools..."
-          brew install novnc websockify
+          echo "Installing websockify package engine..."
+          brew install websockify
+          
+          echo "Cloning lightweight standalone noVNC web runtime wrapper package..."
+          curl -L -o novnc.tar.gz https://github.com
+          tar -xzf novnc.tar.gz
+          mv noVNC-1.5.0 novnc_web_root
+          
+          echo "Injecting secondary fallback connection components..."
+          cp novnc_web_root/vnc.html novnc_web_root/index.html
 
       - name: Launch Android TV SDK Emulator (Hardware Accelerated hvf)
         run: |
           echo "Launching accelerated macOS hardware hypervisor pipeline..."
-          # -accel hvf: Passes the emulation loop directly into Apple's native hardware engine for maximum speed
-          # -gpu swiftshader_indirect: Ensures headless frame buffers compile with true color scaling properties
           $ANDROID_HOME/emulator/emulator -avd "Android_TV_9" \
             -no-window \
             -no-audio \
@@ -55,10 +58,11 @@ jobs:
             -cores 3 &
           sleep 5
 
-      - name: Start Websockify (VNC to WebSockets)
+      - name: Start Websockify pointing to Local Web Root
         run: |
-          echo "Translating frame buffer display signals to browser port 6080..."
-          /opt/homebrew/share/novnc/utils/websockify --web /opt/homebrew/share/novnc/ --heartbeat 10 6080 127.0.0.1:5900 &
+          echo "Translating display signal channels over to network port 6080..."
+          # Pointing directly inside our newly unpacked portable local directory path safely
+          websockify --web ./novnc_web_root/ --heartbeat 10 6080 127.0.0.1:5900 &
           sleep 2
 
       - name: Generate Public Remote Link and Hold for 1 Hour
@@ -67,7 +71,6 @@ jobs:
           echo "LAUNCHING AUTHENTICATED TUNNEL ENGINE OVER PORT 443..."
           echo "================================================================"
           
-          # Web tunnel connection utilizing your premium token ID mapping parameters over port 443
           ssh -o StrictHostKeyChecking=no -p 443 -R 80:localhost:6080 RPLfy23ckPE+80@a.pinggy.io > pinggy.log 2>&1 &
           
           sleep 12
@@ -76,15 +79,13 @@ jobs:
           echo "--> YOUR GITHUB-HOSTED VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
-          # Extract and print out your clickable secure web access url link
           grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
           
           echo ""
           echo "INSTRUCTIONS:"
           echo "1. Click the .pinggy.link URL printed directly above."
-          echo "2. On the web page that opens, click on 'vnc.html'."
+          echo "2. On the web page that opens, click on 'vnc.html' or let it auto-load."
           echo "3. Use your computer keyboard ARROW KEYS to steer Up/Down/Left/Right!"
           echo "================================================================"
           
-          # Keeps the workflow worker open for 60 full minutes
           sleep 3600
