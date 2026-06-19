@@ -1,10 +1,10 @@
-name: GTV14 Google TV 1 Hour VM
+name: Android 11 x64 Live 1 Hour VM
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-1hour-gtv:
+  run-1hour-android11:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -15,32 +15,34 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-utils wget adb novnc websockify
 
-      - name: Download GTV14 ISO (Clean Redirect Resolution)
+      - name: Download Android 11 x64 ISO from Archive.org
         run: |
-          echo "Downloading exact GTV14 MRDTeam ISO using clean redirect tracking..."
-          # Strip dynamic tokens to force curl to resolve the absolute file payload natively
-          curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-            -o GTV14-x86_64-MRDTeam-V26T-260520.iso \
-            "https://sourceforge.net"
+          echo "Pulling clean direct ISO payload from Internet Archive servers..."
+          # Double quotes handle the URL spacing variables flawlessly
+          curl -L -A "Mozilla/5.0" \
+            -o "Android 11 x64 (User).iso" \
+            "https://archive.org/download/androidx86-11-isos/Android%2011%20x64%20%28User%29.iso"
 
-      - name: Provision System Hard Drive
+      - name: Verify ISO File Identity and Size
         run: |
-          qemu-img create -f qcow2 gtv14_disk.qcow2 16G
+          echo "Verifying downloaded raw storage allocation data..."
+          ls -lh "Android 11 x64 (User).iso"
 
-      - name: Launch GTV14 (SCSI Storage Bus Simulation)
+      - name: Provision Storage Drive
         run: |
-          echo "Launching QEMU with SCSI virtual controller mapping..."
-          # Emulates a real SCSI storage interface to trick the hybrid bootloader into tracking partitions
+          qemu-img create -f qcow2 android11_disk.qcow2 16G
+
+      - name: Launch Android 11 in QEMU (IDE CD Emulation Mode)
+        run: |
+          echo "Starting QEMU container..."
           sudo qemu-system-x86_64 \
             -enable-kvm \
             -cpu host \
             -m 4G \
             -smp 2 \
-            -device virtio-scsi-pci,id=scsi0 \
-            -drive file=gtv14_disk.qcow2,format=qcow2,if=none,id=hd0 \
-            -device scsi-hd,drive=hd0,bus=scsi0.0 \
-            -drive file=GTV14-x86_64-MRDTeam-V26T-260520.iso,format=raw,if=none,id=cd0 \
-            -device scsi-hd,drive=cd0,bus=scsi0.0,bootindex=1 \
+            -drive file=android11_disk.qcow2,format=qcow2,index=0,media=disk \
+            -drive file="Android 11 x64 (User).iso",index=1,media=cdrom,format=raw \
+            -boot order=d \
             -vga virtio \
             -display none \
             -vnc 127.0.0.1:0 \
@@ -49,12 +51,12 @@ jobs:
             -monitor telnet:127.0.0.1:4444,server,nowait \
             -daemonize
 
-      - name: Automated GRUB Boot Key Injection
+      - name: Skip GRUB Boot Menu Automatically
         run: |
-          echo "Waiting 15 seconds for the hardware storage arrays to initialize..."
-          sleep 15
+          echo "Waiting 12 seconds for the Android 11 boot options layout to display..."
+          sleep 12
           
-          echo "Sending Return key via Python to auto-select the 'Live CD' menu entry..."
+          echo "Injecting return key over clean network port using Python..."
           python3 -c '
           import socket, time
           s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -64,7 +66,7 @@ jobs:
           time.sleep(0.5)
           s.close()
           '
-          echo "Boot command delivered cleanly."
+          echo "Boot command executed successfully."
 
       - name: Start Websockify (VNC to WebSockets)
         run: |
@@ -86,6 +88,7 @@ jobs:
           echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
+          # Print out your official custom secure URL address link
           grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
           
           echo ""
