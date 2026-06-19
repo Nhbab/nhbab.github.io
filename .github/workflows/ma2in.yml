@@ -31,11 +31,11 @@ jobs:
             --device "tv_720p" \
             --force
 
-      - name: Install noVNC and Python Websockify (Bypass Homebrew)
+      - name: Install noVNC and Python Websockify (PEP 668 Bypass Included)
         run: |
           echo "Installing websockify via native Python pip pipeline..."
-          # Fixed: Installs websockify via pip3 to prevent Homebrew missing formula crashes completely
-          pip3 install websockify
+          # FIXED: Appended --break-system-packages to cleanly bypass macOS PEP 668 global user space restrictions
+          pip3 install websockify --break-system-packages
           
           echo "Downloading standalone noVNC web runtime package..."
           curl -L -o novnc.tar.gz https://github.com
@@ -62,7 +62,6 @@ jobs:
       - name: Start Websockify pointing to Local Web Root
         run: |
           echo "Translating display signal channels over to network port 6080..."
-          # Execute websockify using Python's native module execution flag (-m)
           python3 -m websockify --web ./novnc_web_root/ --heartbeat 10 6080 127.0.0.1:5900 &
           sleep 2
 
