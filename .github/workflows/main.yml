@@ -14,7 +14,6 @@ jobs:
       - name: Launch Emulator Container
         run: |
           echo "Starting Core Android Emulator..."
-          # Running the emulator internally without VNC to save resources
           docker run -d --name android-emulator \
             --device /dev/kvm \
             -e DEVICE_RES="1280x720" \
@@ -24,15 +23,16 @@ jobs:
 
       - name: Launch Web-Scrcpy Web Streamer
         run: |
-          echo "Waiting 15 seconds for emulator core to initialize..."
-          sleep 15
+          echo "Waiting 20 seconds for emulator core to initialize..."
+          sleep 20
           
           echo "Starting Cloud Phone Video Streamer Engine..."
-          # This container attaches to the emulator and converts the screen into a lightweight WebRTC/H264 video feed
+          # CHANGED IMAGE TO A VALID REPOSITORY: shmayro/scrcpy-web
           docker run -d -p 8000:8000 --name web-scrcpy \
+            --privileged \
             --link android-emulator:android-emulator \
             -e ADB_SERVER_SOCKET=tcp:android-emulator:5555 \
-            genymobile/scrcpy-web:latest || true
+            shmayro/scrcpy-web:latest || true
 
       - name: Start Free Pinggy Video Loop
         run: |
@@ -41,7 +41,6 @@ jobs:
             echo "OPEN THE VIDEO STREAM LINK BELOW (VALID FOR 60 MINS):"
             echo "========================================================="
             
-            # Forwarding Port 8000 (The Web-Scrcpy Video Feed) instead of VNC
             ssh -p 443 \
                 -o StrictHostKeyChecking=no \
                 -o ServerAliveInterval=15 \
