@@ -10,11 +10,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install QEMU, UEFI Firmware, noVNC, and Utilities
+      - name: Install QEMU, noVNC, and Utilities
         run: |
           sudo apt-get update
-          # Addedovmf (Open Virtual Machine Firmware) to support modern Android TV ISO boot sectors
-          sudo apt-get install -y qemu-system-x86 qemu-utils wget adb novnc websockify ovmf
+          sudo apt-get install -y qemu-system-x86 qemu-utils wget adb novnc websockify
 
       - name: Download GTV14 Android TV ISO
         run: |
@@ -27,19 +26,20 @@ jobs:
         run: |
           qemu-img create -f qcow2 gtv14_disk.qcow2 12G
 
-      - name: Launch GTV14 in QEMU (Full UEFI Configuration)
+      - name: Launch GTV14 in QEMU (USB Emulation Mode)
         run: |
-          echo "Starting QEMU with integrated UEFI firmware profile..."
-          # Attached '-bios /usr/share/qemu/OVMF.fd' to switch the mainboard architecture layout to UEFI
+          echo "Starting QEMU by emulating a bootable USB stick..."
+          # Replaced -cdrom with a simulated USB storage drive mapped directly to the ISO block
           sudo qemu-system-x86_64 \
             -enable-kvm \
             -cpu host \
             -m 4G \
             -smp 2 \
-            -bios /usr/share/qemu/OVMF.fd \
-            -drive file=gtv14_disk.qcow2,format=qcow2 \
-            -cdrom gtv14_atv.iso \
-            -boot d \
+            -drive file=gtv14_disk.qcow2,format=qcow2,index=0,media=disk \
+            -usb \
+            -device usb-ehci,id=ehci \
+            -drive file=gtv14_atv.iso,format=raw,if=none,id=usb_iso \
+            -device usb-storage,bus=ehci.0,drive=usb_iso,bootindex=1 \
             -vga virtio \
             -display none \
             -vnc 127.0.0.1:0 \
@@ -50,7 +50,7 @@ jobs:
 
       - name: Clean GRUB Boot Selection
         run: |
-          echo "Waiting 12 seconds for the UEFI boot splash screen to initialize..."
+          echo "Waiting 12 seconds for the USB boot tables to load..."
           sleep 12
           
           echo "Injecting return key via Python socket interface..."
@@ -76,7 +76,6 @@ jobs:
           echo "LAUNCHING AUTHENTICATED TUNNEL ENGINE OVER PORT 443..."
           echo "================================================================"
           
-          # Tunnel initialization using your registered premium token
           ssh -o StrictHostKeyChecking=no -p 443 -R 80:localhost:6080 RPLfy23ckPE+80@a.pinggy.io > pinggy.log 2>&1 &
           
           sleep 10
@@ -85,7 +84,6 @@ jobs:
           echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
-          # Extract and print out your secure link
           grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
           
           echo ""
@@ -95,5 +93,4 @@ jobs:
           echo "3. Use your computer keyboard ARROW KEYS to steer Up/Down/Left/Right!"
           echo "================================================================"
           
-          # Lock runner execution alive for 1 full hour
           sleep 3600
