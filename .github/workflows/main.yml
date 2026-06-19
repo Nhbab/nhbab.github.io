@@ -50,7 +50,6 @@ jobs:
           sleep 10
           
           echo "Injecting return key via Python socket interface..."
-          # Using Python ensures 100% compatibility across all systems without netcat errors
           python3 -c '
           import socket, time
           s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -70,22 +69,28 @@ jobs:
       - name: Generate Public Remote Link and Hold for 1 Hour
         run: |
           echo "================================================================"
-          echo "CREATING ZERO-CONFIG NO-REGISTRATION PUBLIC REMOTING LINK..."
+          echo "LAUNCHING TUNNEL ENGINE..."
           echo "================================================================"
           
-          # Spin up the public SSL tunnel pointing to the noVNC local network socket
-          ssh -o StrictHostKeyChecking=no -R 80:localhost:6080 a.pinggy.io &
+          # Force Pinggy to save all its log output into an internal text file (pinggy.log)
+          ssh -o StrictHostKeyChecking=no -R 80:localhost:6080 a.pinggy.io > pinggy.log 2>&1 &
           
-          # Allow 5 seconds for the connection handshake to print out
-          sleep 5
+          # Wait 8 seconds for the network link to establish completely
+          sleep 8
           
           echo "================================================================"
-          echo "--> INSTRUCTIONS TO VIEW YOUR ANDROID TV <--"
-          echo "1. Look above in the log execution line for a URL ending in .pinggy.link"
-          echo "2. Open that URL in your browser."
-          echo "3. Click on the 'vnc.html' file on screen to see the Android TV screen live."
-          echo "4. Use your computer's ARROW KEYS to steer the TV up/down/left/right!"
+          echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
-          # Forces the GitHub Actions worker to stay awake for exactly 60 minutes
+          # Read the log file, find the generated web URL, and print it cleanly to the console
+          grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
+          
+          echo ""
+          echo "INSTRUCTIONS:"
+          echo "1. Click the .pinggy.link URL printed directly above."
+          echo "2. On the web page that opens, click on 'vnc.html'."
+          echo "3. Use your computer keyboard ARROW KEYS to steer Up/Down/Left/Right!"
+          echo "================================================================"
+          
+          # Keep alive for 1 hour
           sleep 3600
