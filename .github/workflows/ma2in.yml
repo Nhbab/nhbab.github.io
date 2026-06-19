@@ -23,12 +23,14 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
           
           echo "Downloading official Android TV 9 system image..."
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;android-tv;x86_64" "emulator" "platform-tools"
+          # FIXED: Switched package target string from x86_64 to x86 to match Google Repository lists
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;android-tv;x86" "emulator" "platform-tools"
           
           echo "Building virtual device with a large 720p TV viewport profile..."
+          # FIXED: Updated the packaging locator flag here to reference the verified x86 build
           echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
             --name "Android_TV_9" \
-            --package "system-images;android-28;android-tv;x86_64" \
+            --package "system-images;android-28;android-tv;x86" \
             --device "tv_720p" \
             --force
 
@@ -56,7 +58,7 @@ jobs:
       - name: Start Websockify (VNC to WebSockets)
         run: |
           echo "Translating frame buffer display signals to browser port 6080..."
-          /opt/homebrew/bin/websockify --web /opt/homebrew/share/novnc/ --heartbeat 10 6080 127.0.0.1:5900 &
+          /opt/homebrew/share/novnc/utils/websockify --web /opt/homebrew/share/novnc/ --heartbeat 10 6080 127.0.0.1:5900 &
           sleep 2
 
       - name: Generate Public Remote Link and Hold for 1 Hour
