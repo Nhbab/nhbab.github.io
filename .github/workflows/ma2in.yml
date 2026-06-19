@@ -24,7 +24,6 @@ jobs:
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "emulator" "platform-tools" "platforms;android-28"
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;android-tv;x86"
           
-          # FIXED: Forced explicit path initialization using ANDROID_AVD_HOME to lock AVD profile definitions
           mkdir -p "$HOME/.android/avd"
           export ANDROID_AVD_HOME="$HOME/.android/avd"
           
@@ -34,29 +33,54 @@ jobs:
             --device "tv_720p" \
             --force
 
-      - name: Install noVNC and Websockify on Ubuntu
+      - name: Install Display Buffers, X11VNC, and noVNC on Ubuntu
         run: |
           sudo apt-get update
-          sudo apt-get install -y novnc websockify
+          # Installed Xvfb (Virtual Screen), x11vnc (VNC engine), and scrcpy (Screen mirroring tool)
+          sudo apt-get install -y xvfb x11vnc novnc websockify scrcpy
 
-      - name: Launch Android SDK TV Emulator (Software Accelerated Headless)
+      - name: Initialize Virtual Display Server (Xvfb)
+        run: |
+          echo "Initializing headless X11 virtual display buffer layout on channel :1..."
+          Xvfb :1 -screen 0 1280x720x24 &
+          sleep 2
+
+      - name: Launch Android SDK TV Emulator (Headless Soft-GPU Engine)
         run: |
           echo "Starting official Android TV emulator in software execution mode..."
-          # FIXED: Pass the matching static folder variable path so the engine locates Android_TV_9.ini natively
           export ANDROID_AVD_HOME="$HOME/.android/avd"
           
+          # Removed the broken '-vnc' flag entirely to prevent engine crashes
           $ANDROID_HOME/emulator/emulator -avd "Android_TV_9" \
             -no-window \
             -no-audio \
             -no-boot-anim \
             -gpu swiftshader_indirect \
-            -vnc :0 \
             -memory 3072 \
             -cores 3 \
             -daemonize
 
-      - name: Start Websockify (VNC to WebSockets)
+      - name: Establish Native Stream Capture (scrcpy to Xvfb)
         run: |
+          echo "Waiting 25 seconds for Android core OS kernel layers to initialize..."
+          sleep 25
+          
+          echo "Connecting via local debugging layer..."
+          adb wait-for-device
+          
+          echo "Binding emulator display buffer to virtual screen display pool..."
+          # Forces scrcpy to pull the hardware screen and render it straight inside our headless X11 pool
+          DISPLAY=:1 scrcpy --max-fps=30 --always-on-top --window-title="atv" &
+          sleep 3
+
+      - name: Initialize Network Streaming Ports
+        run: |
+          echo "Starting x11vnc server pointing to display channel :1..."
+          # Creates a robust background VNC interface bound to port 5900
+          x11vnc -display :1 -nopw -listen 127.0.0.1 -forever -bg
+          sleep 2
+          
+          echo "Translating frame buffer display signals to browser port 6080..."
           websockify --web /usr/share/novnc/ --heartbeat 10 6080 127.0.0.1:5900 &
           sleep 2
 
