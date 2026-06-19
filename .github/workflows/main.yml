@@ -17,56 +17,63 @@ jobs:
 
       - name: Download Android 11 x64 ISO from Archive.org
         run: |
-          echo "Pulling clean direct ISO payload from Internet Archive servers..."
-          # Double quotes handle the URL spacing variables flawlessly
+          echo "Pulling clean direct ISO payload..."
           curl -L -A "Mozilla/5.0" \
             -o "Android 11 x64 (User).iso" \
             "https://archive.org/download/androidx86-11-isos/Android%2011%20x64%20%28User%29.iso"
-
-      - name: Verify ISO File Identity and Size
-        run: |
-          echo "Verifying downloaded raw storage allocation data..."
-          ls -lh "Android 11 x64 (User).iso"
 
       - name: Provision Storage Drive
         run: |
           qemu-img create -f qcow2 android11_disk.qcow2 16G
 
-      - name: Launch Android 11 in QEMU (IDE CD Emulation Mode)
+      - name: Launch Android 11 in QEMU (Max Performance Settings)
         run: |
-          echo "Starting QEMU container..."
+          echo "Starting high-speed QEMU container..."
           sudo qemu-system-x86_64 \
             -enable-kvm \
             -cpu host \
-            -m 4G \
-            -smp 2 \
-            -drive file=android11_disk.qcow2,format=qcow2,index=0,media=disk \
+            -m 6G \
+            -smp 4,cores=4,threads=1 \
+            -drive file=android11_disk.qcow2,format=qcow2,index=0,media=disk,cache=none,aio=native \
             -drive file="Android 11 x64 (User).iso",index=1,media=cdrom,format=raw \
             -boot order=d \
-            -vga virtio \
+            -vga none \
+            -device virtio-vga-gl,virgl=on \
             -display none \
+            -audio none \
             -vnc 127.0.0.1:0 \
             -net nic,model=virtio \
             -net user,hostfwd=tcp::5555-:5555 \
             -monitor telnet:127.0.0.1:4444,server,nowait \
             -daemonize
 
-      - name: Skip GRUB Boot Menu Automatically
+      - name: Fast Automated Target Drive Installation
         run: |
-          echo "Waiting 12 seconds for the Android 11 boot options layout to display..."
-          sleep 12
+          echo "Waiting 8 seconds for the GRUB installation partition layout menu to initialize..."
+          sleep 8
           
-          echo "Injecting return key over clean network port using Python..."
+          echo "Injecting macro keystroke chain to force Auto-Installation sequence..."
           python3 -c '
           import socket, time
           s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
           s.connect(("127.0.0.1", 4444))
           time.sleep(0.5)
-          s.sendall(b"\n\nsendkey ret\n")
+          
+          # Move down twice to select "Auto-Installation - Install to specified harddisk"
+          s.sendall(b"sendkey down\n")
           time.sleep(0.5)
+          s.sendall(b"sendkey down\n")
+          time.sleep(0.5)
+          
+          # Press Enter to start the automated disk installation script
+          s.sendall(b"sendkey ret\n")
+          time.sleep(1.0)
+          
+          # Confirm the absolute drive format wiping prompt by pressing Enter again
+          s.sendall(b"sendkey ret\n")
           s.close()
           '
-          echo "Boot command executed successfully."
+          echo "Macro sequence injected. Android 11 is installing natively to the virtual hard drive block..."
 
       - name: Start Websockify (VNC to WebSockets)
         run: |
@@ -79,7 +86,6 @@ jobs:
           echo "LAUNCHING AUTHENTICATED TUNNEL ENGINE OVER PORT 443..."
           echo "================================================================"
           
-          # Stable web tunnel utilizing your custom registered profile token ID parameter
           ssh -o StrictHostKeyChecking=no -p 443 -R 80:localhost:6080 RPLfy23ckPE+80@a.pinggy.io > pinggy.log 2>&1 &
           
           sleep 10
@@ -88,7 +94,6 @@ jobs:
           echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
-          # Print out your official custom secure URL address link
           grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
           
           echo ""
