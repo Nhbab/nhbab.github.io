@@ -1,4 +1,4 @@
-name: Android TV 9 Fast 1 Hour VM
+name: Android TV 9 True-Color 1 Hour VM
 
 on:
   workflow_dispatch:
@@ -28,19 +28,29 @@ jobs:
             -o "AndroidTV9-x64.iso" \
             "https://archive.org/download/androidtv-x86/AndroidTV9-x64-k5.18.0-arm-gapps-wifi6-%2807.02.23%29.iso"
 
-      - name: Launch Android TV 9 in QEMU (High-Speed True-Color VirtIO)
+      - name: Mount and Extract Kernel Components for Direct Injection
         run: |
-          echo "Starting accelerated QEMU container layout with VirtIO True Color driver..."
-          # Changed to -vga virtio combined with -g 1280x720x16 to fix color byte inversion and remove VESA lag
+          echo "Extracting system kernel files to bypass GRUB menus entirely..."
+          mkdir iso_mount
+          sudo mount -o loop AndroidTV9-x64.iso iso_mount
+          cp iso_mount/kernel .
+          cp iso_mount/initrd.img .
+          sudo umount iso_mount
+
+      - name: Launch Android TV 9 (Direct Kernel Boot + True Color Fix)
+        run: |
+          echo "Starting accelerated QEMU container layout using Direct Kernel Injection..."
+          # UVESA_MODE=1280x720x16 forces a strict true-color structure that fixes inverted color channels natively
           qemu-system-x86_64 \
             -enable-kvm \
             -cpu host \
             -m 6G \
             -smp 4,cores=4,threads=1 \
+            -kernel kernel \
+            -initrd initrd.img \
+            -append "root=/dev/ram0 androidboot.selinux=permissive androidboot.hardware=android_x86 SRC=/ UVESA_MODE=1280x720x16 video=1280x720 DPI=160" \
             -drive file="AndroidTV9-x64.iso",media=cdrom,format=raw \
-            -boot order=d \
-            -vga virtio \
-            -g 1280x720x16 \
+            -vga std \
             -device virtio-mouse-pci \
             -device virtio-keyboard-pci \
             -display none \
@@ -48,26 +58,7 @@ jobs:
             -vnc 127.0.0.1:0 \
             -net nic,model=virtio \
             -net user,hostfwd=tcp::5555-:5555 \
-            -monitor telnet:127.0.0.1:4444,server,nowait \
             -daemonize
-
-      - name: Fast Automated Native Boot Selection
-        run: |
-          echo "Waiting 12 seconds for the GRUB live boot options to process..."
-          sleep 12
-          
-          echo "Injecting pure return key over network port..."
-          python3 -c '
-          import socket, time
-          s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-          s.connect(("127.0.0.1", 4444))
-          time.sleep(0.5)
-          # Fires Enter key onto option 1 ("Live CD - Run Android TV without installation")
-          s.sendall(b"sendkey ret\n")
-          time.sleep(0.5)
-          s.close()
-          '
-          echo "Boot command executed successfully. Accelerated GUI is starting..."
 
       - name: Start Websockify (VNC to WebSockets)
         run: |
@@ -80,6 +71,7 @@ jobs:
           echo "LAUNCHING AUTHENTICATED TUNNEL ENGINE OVER PORT 443..."
           echo "================================================================"
           
+          # Stable connection tunnel using your premium token ID mapping config
           ssh -o StrictHostKeyChecking=no -p 443 -R 80:localhost:6080 RPLfy23ckPE+80@a.pinggy.io > pinggy.log 2>&1 &
           
           sleep 10
@@ -88,6 +80,7 @@ jobs:
           echo "--> YOUR ONLINE VIRTUAL MACHINE REMOTE DETAILS <--"
           echo "================================================================"
           
+          # Read the log file, find the generated web URL, and print it cleanly to the console
           grep -o 'https://[^ ]*\(pinggy.link\|pinggy.io\)' pinggy.log || cat pinggy.log
           
           echo ""
@@ -97,4 +90,5 @@ jobs:
           echo "3. Use your computer keyboard ARROW KEYS to steer Up/Down/Left/Right!"
           echo "================================================================"
           
+          # Keeps the workflow worker open for 60 full minutes
           sleep 3600
