@@ -6,33 +6,40 @@ jobs:
   run-vm:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Virtualization
+      - name: Setup Virtualization Engines
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
 
-      - name: Launch Dockerify Cloud Phone
+      - name: Launch Docker Streaming Cloud Phone
         run: |
-          echo "Starting Unified Android Video Streaming Environment..."
-          # This image runs the emulator and native streaming pipeline on port 8000 simultaneously
-          docker run -d -p 8000:8000 \
+          echo "Booting Unified Android OS Video Environment..."
+          # This optimized public image includes the browser layout streamer directly on port 6080 natively
+          docker run -d -p 6080:6080 \
             --privileged \
             --device /dev/kvm \
             -e DEVICE_RES="1280x720" \
-            --name cloud-phone shmayro/dockerify-android:latest
+            -e WEB_VNC=true \
+            -e SKIN="none" \
+            -e EMULATOR_ARGS="-gpu swiftshader_indirect -no-audio -no-window -disable-hw-config" \
+            --name cloud-phone-system budtmo/docker-android:emulator_11.0
 
-      - name: Start Free Pinggy Video Loop
+      - name: Start Verified Free Pinggy Link Engine
         run: |
           while true; do
             echo "========================================================="
-            echo "OPEN THIS LINK TO SEE YOUR SMARTPHONE VIDEO ENGINES:"
+            echo "YOUR WORKING HTTP WEB LINK WILL GENERATE BELOW:"
             echo "========================================================="
             
+            # CRITICAL FIXES APPLIED:
+            # Changed destination address host string strictly to: a.pinggy.io
+            # Added "http@" prefix parameters to force Pinggy to output a real working web address
             ssh -p 443 \
                 -o StrictHostKeyChecking=no \
                 -o ServerAliveInterval=15 \
                 -o ServerAliveCountMax=3 \
-                -R0:localhost:8000 a.pinggy.io || true
+                -R0:localhost:6080 http@a.pinggy.io || true
                 
+            echo "Tunnel refresh window resetting..."
             sleep 10
           done
