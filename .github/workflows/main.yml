@@ -21,38 +21,21 @@ jobs:
           sudo usermod -aG kvm $USER
           sudo chown $USER /dev/kvm
 
-      - name: Download GTV11 from Google Drive (Convert to Raw Image)
+      - name: Download GTV11 from Open Mirror Array (No Quota Blocks)
         run: |
-          echo "Downloading GTV11 using Google Drive bypass and converting file block signature..."
-          python3 -c '
-          import requests
-          def download_file_from_google_drive(id, destination):
-              URL = "https://google.com"
-              session = requests.Session()
-              response = session.get(URL, params={"id": id}, stream=True)
-              token = None
-              for key, value in response.cookies.items():
-                  if key.startswith("download_warning"):
-                      token = value
-              if token:
-                  params = {"id": id, "confirm": token}
-                  response = session.get(URL, params=params, stream=True)
-              save_response_content(response, destination)
-
-          def save_response_content(response, destination):
-              CHUNK_SIZE = 32768
-              with open(destination, "wb") as f:
-                  for chunk in response.iter_content(CHUNK_SIZE):
-                      if chunk:
-                          f.write(chunk)
-
-          # Saving explicitly with a .img extension satisfies the QEMU hard disk driver logic
-          download_file_from_google_drive("1lXOoXZz_jhdpk1X5NTJBS3V-ZCMrEukC", "GTV11-x86_64-MRDTeam-V24-250622.img")
-          '
+          echo "Pulling GTV11 from direct global hardware node..."
+          # Using specific direct mirror subdomains completely avoids Google Drive 403 / Quota blocks
+          curl -L -A "Mozilla/5.0" \
+            -o "GTV11-x86_64-MRDTeam-V24-250622.img" \
+            "https://sourceforge.net" || \
+          curl -L -A "Mozilla/5.0" \
+            -o "GTV11-x86_64-MRDTeam-V24-250622.img" \
+            "https://sourceforge.net"
 
       - name: Verify Downloaded Image Integrity
         run: |
-          echo "Checking downloaded file size..."
+          echo "Checking downloaded file size footprint..."
+          # This must show around 1.2G to 1.5G, not 79K!
           ls -lh "GTV11-x86_64-MRDTeam-V24-250622.img"
 
       - name: Provision System Hard Drive
@@ -62,7 +45,6 @@ jobs:
       - name: Launch GTV11 (SATA IDE Drive Mapping Interface)
         run: |
           echo "Launching QEMU using native raw hard disk layout to bypass CD-ROM locks..."
-          # Changed layout to 'if=ide,format=raw' to match the hybrid boot signature expectation
           qemu-system-x86_64 \
             -enable-kvm \
             -cpu host \
