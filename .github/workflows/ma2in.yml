@@ -1,4 +1,4 @@
-name: Android TV 9 Fast 1 Hour VM
+name: Android TV 9 True-Color 1 Hour VM
 
 on:
   workflow_dispatch:
@@ -28,11 +28,11 @@ jobs:
             -o "AndroidTV9-x64-k5.18.0-arm-gapps-wifi6-(07.02.23).iso" \
             "https://archive.org/download/androidtv-x86/AndroidTV9-x64-k5.18.0-arm-gapps-wifi6-%2807.02.23%29.iso"
 
-      - name: Launch Android TV 9 in QEMU (Max Speed Stable Graphics)
+      - name: Launch Android TV 9 in QEMU (Hardwired Input Drivers)
         run: |
-          echo "Starting high-performance stable QEMU container layout..."
-          # Running directly from the disc image fixes the boot freeze loop entirely
-          # Allocated 6GB RAM and 4 processing cores for maximum operational speed
+          echo "Starting accelerated QEMU container with native PS/2 and USB input controllers..."
+          # Added '-device i8042' to force modern legacy PS/2 hardware keyboard bus lanes to remain wide open
+          # Added '-device usb-kbd' and '-device usb-tablet' to prevent Android from dropping mouse tracking data
           qemu-system-x86_64 \
             -enable-kvm \
             -cpu Westmere,+ssse3,+sse4.1,+sse4.2,+popcnt,aes=on \
@@ -41,8 +41,10 @@ jobs:
             -drive file="AndroidTV9-x64-k5.18.0-arm-gapps-wifi6-(07.02.23).iso",if=ide,media=cdrom,format=raw \
             -boot order=d,menu=on,once=d \
             -vga std \
-            -device virtio-mouse-pci \
-            -device virtio-keyboard-pci \
+            -device i8042 \
+            -usb \
+            -device usb-kbd \
+            -device usb-tablet \
             -display none \
             -audio none \
             -vnc 127.0.0.1:0 \
@@ -51,12 +53,12 @@ jobs:
             -monitor telnet:127.0.0.1:4444,server,nowait \
             -daemonize
 
-      - name: Automated True-Color Large Viewport Injection Macro
+      - name: Automated True-Color Large Viewport Boot Macro
         run: |
           echo "Waiting 12 seconds for the generic GRUB boot selection page to generate..."
           sleep 12
           
-          echo "Injecting resolution scales and wizard bypass criteria via control socket..."
+          echo "Injecting resolution scales and input-preserving layout variables..."
           python3 -c '
           import socket, time
           s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -69,10 +71,11 @@ jobs:
           s.sendall(b"sendkey spc\n")
           time.sleep(0.1)
           
-          # vga=788: Sets direct 16-bit processing layout compatibility
-          # video=1280x720 DPI=160: Enlarges the interface window size to a wide widescreen layout
-          # SETUPWIZARD=0 EXTMOD=1: Disables the crashing setup loop and forces high-speed rendering execution
-          boot_params = "vga=788 video=1280x720 DPI=160 SETUPWIZARD=0 EXTMOD=1 quiet"
+          # Removed EXTMOD=vesafb to prevent Android from shutting down key tracking engines
+          # vga=788: Corrects the color mapping bytes natively (fixes the inverted colors)
+          # video=1280x720 DPI=160: Forces a large widescreen television screen layout in your web player
+          # SETUPWIZARD=0: Skips the crashing Google initialization registration loops
+          boot_params = "vga=788 video=1280x720 DPI=160 SETUPWIZARD=0 quiet"
           for char in boot_params:
               if char == " ":
                   s.sendall(b"sendkey spc\n")
@@ -87,7 +90,7 @@ jobs:
               time.sleep(0.04)
           
           time.sleep(0.5)
-          # Hit Enter to boot directly into the high-definition widescreen layout
+          # Hit Enter to boot directly into the input-enabled high-definition layout
           s.sendall(b"sendkey ret\n")
           s.close()
           '
